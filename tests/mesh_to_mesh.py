@@ -25,8 +25,8 @@ else:
     device = torch.device("cpu")
     print("WARNING: CPU only, this will be slow!")
 
-# Load the cow mesh.
-trg_obj = os.path.join('meshes/cow.obj')
+# Load the target mesh.
+trg_obj = os.path.join('meshes/02t.obj')
 
 # We read the target 3D model using load_obj
 verts, faces, aux = load_obj(trg_obj)
@@ -45,11 +45,33 @@ verts = verts - center
 scale = max(verts.abs().max(0)[0])
 verts = verts / scale
 
-# We construct a Meshes structure for the target mesh
+# Load the source mesh.
+src_obj = os.path.join('meshes/02ss_02.obj')
+
+# We read the target 3D model using load_obj
+Sverts, Sfaces, Saux = load_obj(src_obj)
+
+# verts is a FloatTensor of shape (V, 3) where V is the number of vertices in the mesh
+# faces is an object which contains the following LongTensors: verts_idx, normals_idx and textures_idx
+# For this tutorial, normals and textures are ignored.
+Sfaces_idx = Sfaces.verts_idx.to(device)
+Sverts = Sverts.to(device)
+
+# We scale normalize and center the target mesh to fit in a sphere of radius 1 centered at (0,0,0). 
+# (scale, center) will be used to bring the predicted mesh to its original center and scale
+# Note that normalizing the target mesh, speeds up the optimization but is not necessary!
+Scenter = Sverts.mean(0)
+Sverts = Sverts - Scenter
+Sscale = max(Sverts.abs().max(0)[0])
+Sverts = Sverts / Sscale
+
 trg_mesh = Meshes(verts=[verts], faces=[faces_idx])
 
+# We construct a Meshes structure for the target mesh
+src_mesh = Meshes(verts=[Sverts], faces=[Sfaces_idx])
+
 # We initialize the source shape to be a sphere of radius 1
-src_mesh = ico_sphere(4, device)
+#src_mesh = ico_sphere(4, device)
 
 def plot_pointcloud(mesh, title=""):
     # Sample points uniformly from the surface of the mesh.
@@ -65,9 +87,9 @@ def plot_pointcloud(mesh, title=""):
     ax.view_init(190, 30)
     plt.show()
 
-'''
+
 plot_pointcloud(trg_mesh, "Target mesh")
-plot_pointcloud(src_mesh, "Source mesh")'''
+plot_pointcloud(src_mesh, "Source mesh")
 
 # We will learn to deform the source mesh by offsetting its vertices
 # The shape of the deform parameters is equal to the total number of vertices in src_mesh
