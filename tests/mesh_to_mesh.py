@@ -18,28 +18,26 @@ import matplotlib as mpl
 mpl.rcParams['savefig.dpi'] = 80
 mpl.rcParams['figure.dpi'] = 80
 
-# Set the device
+# set the device
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
 else:
     device = torch.device("cpu")
     print("WARNING: CPU only, this will be slow!")
 
-# Load the target mesh.
+# load the target mesh
 trg_obj = os.path.join('meshes/02t.obj')
 
-# We read the target 3D model using load_obj
+# we read the target 3D model using load_obj
 verts, faces, aux = load_obj(trg_obj)
 
 # verts is a FloatTensor of shape (V, 3) where V is the number of vertices in the mesh
 # faces is an object which contains the following LongTensors: verts_idx, normals_idx and textures_idx
-# For this tutorial, normals and textures are ignored.
 faces_idx = faces.verts_idx.to(device)
 verts = verts.to(device)
 
-# We scale normalize and center the target mesh to fit in a sphere of radius 1 centered at (0,0,0). 
+# we scale normalize and center the target mesh
 # (scale, center) will be used to bring the predicted mesh to its original center and scale
-# Note that normalizing the target mesh, speeds up the optimization but is not necessary!
 center = verts.mean(0)
 verts = verts - center
 scale = max(verts.abs().max(0)[0])
@@ -48,30 +46,21 @@ verts = verts / scale
 # Load the source mesh.
 src_obj = os.path.join('meshes/02ss_02.obj')
 
-# We read the target 3D model using load_obj
+# we read the source 3D model using load_obj
 Sverts, Sfaces, Saux = load_obj(src_obj)
 
-# verts is a FloatTensor of shape (V, 3) where V is the number of vertices in the mesh
-# faces is an object which contains the following LongTensors: verts_idx, normals_idx and textures_idx
-# For this tutorial, normals and textures are ignored.
 Sfaces_idx = Sfaces.verts_idx.to(device)
 Sverts = Sverts.to(device)
 
-# We scale normalize and center the target mesh to fit in a sphere of radius 1 centered at (0,0,0). 
-# (scale, center) will be used to bring the predicted mesh to its original center and scale
-# Note that normalizing the target mesh, speeds up the optimization but is not necessary!
+# we're doing the same transformation as above
 Scenter = Sverts.mean(0)
 Sverts = Sverts - Scenter
 Sscale = max(Sverts.abs().max(0)[0])
 Sverts = Sverts / Sscale
 
+# We construct a meshes structure for the source and target mesh
 trg_mesh = Meshes(verts=[verts], faces=[faces_idx])
-
-# We construct a Meshes structure for the target mesh
 src_mesh = Meshes(verts=[Sverts], faces=[Sfaces_idx])
-
-# We initialize the source shape to be a sphere of radius 1
-#src_mesh = ico_sphere(4, device)
 
 def plot_pointcloud(mesh, title=""):
     # Sample points uniformly from the surface of the mesh.
@@ -87,27 +76,26 @@ def plot_pointcloud(mesh, title=""):
     ax.view_init(190, 30)
     plt.show()
 
-
+'''
 plot_pointcloud(trg_mesh, "Target mesh")
-plot_pointcloud(src_mesh, "Source mesh")
+plot_pointcloud(src_mesh, "Source mesh")'''
 
-# We will learn to deform the source mesh by offsetting its vertices
-# The shape of the deform parameters is equal to the total number of vertices in src_mesh
+# we will learn to deform the source mesh by offsetting its vertices
+# the shape of the deform parameters is equal to the total number of vertices in src_mesh
 deform_verts = torch.full(src_mesh.verts_packed().shape, 0.0, device=device, requires_grad=True)
 
-# The optimizer
 optimizer = torch.optim.SGD([deform_verts], lr=1.0, momentum=0.9)
 
 Niter = 1000
-# Weight for the chamfer loss
+# weight for the chamfer loss
 w_chamfer = 1.0 
-# Weight for mesh edge loss
+# weight for mesh edge loss
 w_edge = 1.0 
-# Weight for mesh normal consistency
+# weight for mesh normal consistency
 w_normal = 0.01 
-# Weight for mesh laplacian smoothing
+# weight for mesh laplacian smoothing
 w_laplacian = 0.1 
-# Plot period for the losses
+# plot period for the losses
 plot_period = 250
 loop = tqdm(range(Niter))
 
@@ -117,45 +105,34 @@ edge_losses = []
 normal_losses = []
 
 for i in loop:
-    # Initialize optimizer
+    # initialize optimizer
     optimizer.zero_grad()
-    
-    # Deform the mesh
+    # deform the mesh
     new_src_mesh = src_mesh.offset_verts(deform_verts)
-    
-    # We sample 5k points from the surface of each mesh 
+    # sample 5k points from the surface of each mesh 
     sample_trg = sample_points_from_meshes(trg_mesh, 5000)
     sample_src = sample_points_from_meshes(new_src_mesh, 5000)
-    
-    # We compare the two sets of pointclouds by computing (a) the chamfer loss
+    # compare the two sets of pointclouds by computing the chamfer loss
     loss_chamfer, _ = chamfer_distance(sample_trg, sample_src)
-    
-    # and (b) the edge length of the predicted mesh
+    # and the edge length of the predicted mesh
     loss_edge = mesh_edge_loss(new_src_mesh)
-    
     # mesh normal consistency
     loss_normal = mesh_normal_consistency(new_src_mesh)
-    
     # mesh laplacian smoothing
     loss_laplacian = mesh_laplacian_smoothing(new_src_mesh, method="uniform")
-    
-    # Weighted sum of the losses
+    # weighted sum of the losses
     loss = loss_chamfer * w_chamfer + loss_edge * w_edge + loss_normal * w_normal + loss_laplacian * w_laplacian
-    
-    # Print the losses
+    # print the losses
     loop.set_description('total_loss = %.6f' % loss)
-    
-    # Save the losses for plotting
+    # save the losses for plotting
     chamfer_losses.append(loss_chamfer)
     edge_losses.append(loss_edge)
     normal_losses.append(loss_normal)
     laplacian_losses.append(loss_laplacian)
-    
-    # Plot mesh
+    # plot mesh
     if i % plot_period == 0:
         plot_pointcloud(new_src_mesh, title="iter: %d" % i)
-        
-    # Optimization step
+    # optimization step
     loss.backward()
     optimizer.step()
 
@@ -170,12 +147,12 @@ ax.set_xlabel("Iteration", fontsize="16")
 ax.set_ylabel("Loss", fontsize="16")
 ax.set_title("Loss vs iterations", fontsize="16")
 
-# Fetch the verts and faces of the final predicted mesh
+# fetch the verts and faces of the final predicted mesh
 final_verts, final_faces = new_src_mesh.get_mesh_verts_faces(0)
 
-# Scale normalize back to the original target size
+# scale normalize back to the original target size
 final_verts = final_verts * scale + center
 
-# Store the predicted mesh using save_obj
+# store the predicted mesh using save_obj
 final_obj = os.path.join('./meshes', 'final_model.obj')
 save_obj(final_obj, final_verts, final_faces)
