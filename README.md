@@ -30,3 +30,7 @@ From this, I learned how to load objects and meshes and how to modify them.
 The next thing I read about is [rendering texture](https://pytorch3d.org/tutorials/render_textured_meshes)
 
 For mesh texturing there is several options : vertex textures, UV textures and face textures
+
+### Third step
+
+[Fit texture mesh](https://pytorch3d.org/tutorials/fit_textured_mesh)
