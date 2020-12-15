@@ -5,13 +5,19 @@
 Everything is explained in the [README](https://github.com/facebookresearch/pytorch3d/blob/master/INSTALL.md) of the pytorch3D lib.
 
 As I have CUDA 10.1, which is an old version, I need to run this command : 
-``̀ pip install torch==1.6.0+cu101 torchvision==0.7.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html```
+
+```python
+pip install torch==1.6.0+cu101 torchvision==0.7.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
+```
 
 I wanted to build pytorch3d the easiest way so I sticked with an older version of torch : 1.6.0.
 
 In order to install pytorch, you need to run :
 
-``̀ pip install pytorch3d```
+```python
+pip install pytorch3d
+```
+
 
 ATTENTION, as I was saying above, this works with pytorch 1.6.0 only.
 
